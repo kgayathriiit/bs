@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackout! Restart the Town</title>
+<meta name="description" content="A small game about black start: one battery restarts a whole microgrid after a blackout. Based on black-start research at the SPEL Lab, IIT Gandhinagar.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Hind:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wall:#DDE6EC; --plate:#FBFBF7; --plate-line:#D6D8D2;
+  --ink:#1E2A3A; --ink-soft:#4B5768;
+  --neon:#E8442E; --led:#1FA457; --amber:#E39A0B; --blue:#2E5A96; --navy:#14213D;
+  --lcd:#CFDDBF; --lcd-ink:#1F2B1A;
+  --f-display:'Baloo 2','Trebuchet MS',system-ui,sans-serif;
+  --f-body:'Hind','Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0}
+body{background-color:var(--wall);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.5;
+  background-image:radial-gradient(rgba(255,255,255,.45) 1px,transparent 1.2px);background-size:7px 7px}
+.wrap{max-width:1220px;margin:0 auto;padding:20px 16px 40px}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.small{font-size:14px;color:var(--ink-soft)}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(36px,5.2vw,54px);line-height:1;margin:0}
+.lede{margin:6px 0 0;max-width:56ch;color:var(--ink-soft)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--plate);border:1px solid var(--plate-line);border-radius:999px;padding:3px}
+.seg button{border:0;background:transparent;font:600 15px var(--f-body);padding:7px 13px;border-radius:999px;color:var(--ink-soft);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.btn{font:600 16px var(--f-body);padding:10px 16px;border-radius:10px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--ink);color:#fff}
+.btn.big{font-size:20px;padding:13px 26px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-quiet{font:600 15px var(--f-body);background:transparent;border:0;color:var(--ink-soft);cursor:pointer;padding:8px 6px;text-decoration:underline;text-underline-offset:3px}
+
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+#scene{display:block;width:100%;height:auto;border-radius:16px;box-shadow:0 12px 26px -16px rgba(20,33,61,.6)}
+#scene text{font-family:var(--f-body)}
+.msg{margin:10px 0 0;min-height:3.3em;padding:10px 14px;border-left:5px solid var(--ink-soft);background:rgba(255,255,255,.65);border-radius:0 10px 10px 0}
+.msg.bad{border-color:var(--neon)} .msg.good{border-color:var(--led)} .msg.warn{border-color:var(--amber)}
+
+.panel{background:#ECEEEF;border:1px solid #C3C9CF;border-radius:18px;padding:14px 16px 18px;box-shadow:inset 0 -3px 0 #D3D8DC}
+.panel-title{margin:0;font-family:var(--f-display);font-weight:700;font-size:21px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.panel-title span{font-family:var(--f-body);font-weight:500;font-size:14px;color:var(--ink-soft)}
+.dial{display:block;width:100%;height:auto;margin-top:4px}
+.dial-t{font:500 11px var(--f-body);fill:var(--ink-soft)}
+.dial-num{font-family:var(--f-display);font-weight:700;font-size:42px;line-height:1;text-align:center;margin:-4px 0 0;font-variant-numeric:tabular-nums}
+.dial-num .unit{font-size:21px;margin-left:2px}
+.dial-num.is-bad{color:#B4321F}
+.dial-cap{text-align:center;margin:4px 0 12px;font-weight:600;min-height:1.5em}
+.dial-cap.is-warn{color:#8F5B00} .dial-cap.is-bad{color:#B4321F}
+.lcd{background:var(--lcd);color:var(--lcd-ink);border-radius:8px;padding:10px 12px;box-shadow:inset 0 2px 5px rgba(0,0,0,.2);font-variant-numeric:tabular-nums}
+.lcd .row{display:flex;justify-content:space-between;gap:8px;font-size:15px;padding:2px 0}
+.lcd .row b{font-weight:600;text-align:right}
+.bar{height:6px;background:rgba(31,43,26,.16);border-radius:3px;overflow:hidden;margin:2px 0 6px}
+.bar i{display:block;height:100%;width:0;background:var(--lcd-ink);transition:width .2s}
+
+.board-wrap{margin-top:18px}
+.plate{position:relative;background:var(--plate);border:1px solid var(--plate-line);border-radius:22px;padding:14px 18px 14px;box-shadow:0 2px 0 #E6E4DC,0 14px 24px -18px rgba(30,42,58,.6)}
+.plate::before,.plate::after{content:"";position:absolute;top:50%;width:13px;height:13px;margin-top:-6px;border-radius:50%;border:1px solid #BDB9AE;background:linear-gradient(135deg,transparent 45%,#A8A497 45%,#A8A497 55%,transparent 55%),radial-gradient(circle at 40% 35%,#fff,#D3D0C6)}
+.plate::before{left:9px} .plate::after{right:9px}
+.board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:0 14px}
+.sw{display:flex;flex-direction:column;align-items:center;gap:7px;background:transparent;border:0;border-radius:12px;padding:8px 4px 10px;cursor:pointer;color:var(--ink);font:inherit}
+.sw:disabled{cursor:default}
+.neon{width:9px;height:9px;border-radius:50%;background:#BDB7AC;box-shadow:inset 0 1px 1px rgba(0,0,0,.25)}
+.sw.is-on .neon{background:var(--neon);box-shadow:0 0 7px 2px rgba(232,68,46,.55)}
+.sw.is-busy .neon{background:var(--amber);animation:blink .5s linear infinite}
+.rocker{width:42px;height:62px;border-radius:7px;border:1px solid #CBC7BC;background:#F5F4EF;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 2px 0 #DAD7CD}
+.sw:not(:disabled):hover .rocker{border-color:#9F9A8C}
+.rk-top,.rk-bot{flex:1;transition:background .12s,box-shadow .12s}
+.rk-top{background:linear-gradient(#E3E0D6,#EFEDE6);box-shadow:inset 0 3px 5px rgba(0,0,0,.13)}
+.rk-bot{background:linear-gradient(#FFFFFF,#F1EFE8)}
+.sw.is-on .rk-top{background:linear-gradient(#FFFFFF,#F1EFE8);box-shadow:none}
+.sw.is-on .rk-bot{background:linear-gradient(#E3E0D6,#EFEDE6);box-shadow:inset 0 3px 5px rgba(0,0,0,.13)}
+.sw-name{display:flex;align-items:center;justify-content:center;gap:4px;font-weight:600;font-size:15px;line-height:1.2;text-align:center}
+.sw-name svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sw-info{font-size:13px;color:var(--ink-soft);text-align:center;line-height:1.25}
+.sw-info .note{display:block}
+.board-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}
+.ribbon,.chips{list-style:none;display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:12px 0 0;counter-reset:step}
+.ribbon{justify-content:center}
+.ribbon li,.chips li{counter-increment:step;background:var(--plate);border:1px solid var(--plate-line);border-radius:999px;padding:3px 12px 3px 5px;font-size:14px;font-weight:600;color:var(--ink-soft)}
+.ribbon li::before,.chips li::before{content:counter(step);display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#E6E4DC;margin-right:6px;font-size:12px}
+.ribbon li.done,.chips li{color:var(--ink);border-color:#B9B5A9}
+.ribbon li.done::before,.chips li::before{background:var(--ink);color:#fff}
+
+details.engineer{margin-top:22px;background:rgba(255,255,255,.65);border-radius:16px;padding:4px 16px}
+details.engineer summary{cursor:pointer;font-weight:600;padding:10px 0}
+.eng-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px;padding:4px 0 14px}
+.eng-grid h3{font-family:var(--f-display);font-size:21px;margin:6px 0 6px}
+.stages{margin:0 0 12px;padding-left:1.4em}
+.stages li{padding:2px 0;color:var(--ink-soft)}
+.stages li.is-now{color:var(--ink);font-weight:600}
+.stages li.is-now::marker{color:var(--neon)}
+table.map{border-collapse:collapse;width:100%;font-size:15px}
+table.map th{text-align:left;font-weight:600;padding:6px 10px 6px 0;vertical-align:top;width:42%}
+table.map td{padding:6px 0;color:var(--ink-soft)}
+table.map tr+tr{border-top:1px solid var(--plate-line)}
+canvas.chart{display:block;width:100%;background:#fff;border-radius:10px}
+#chart{height:320px} #pchart{height:240px}
+.data-note{margin:6px 0 0;font-size:14px;color:var(--ink-soft)}
+.data-note.sample{color:#8F5B00;font-weight:600}
+
+.overlay{position:fixed;inset:0;background:rgba(20,33,61,.5);display:grid;place-items:center;padding:16px;z-index:10;overflow:auto}
+.card{background:var(--plate);border-radius:18px;max-width:620px;width:100%;padding:24px 24px 22px;box-shadow:0 30px 60px -30px rgba(0,0,0,.55)}
+.card.wide{max-width:720px}
+.card h2{font-family:var(--f-display);font-weight:700;font-size:33px;line-height:1.1;margin:0 0 10px}
+.card p{margin:0 0 12px;max-width:62ch}
+.pick{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0 8px}
+.facts{margin:0 0 18px;font-size:15px;color:var(--ink-soft)}
+.progress{height:10px;background:#E6E4DC;border-radius:5px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--ink)}
+.count{margin-top:10px}
+.compare{width:100%;border-collapse:collapse;margin:6px 0 12px;font-variant-numeric:tabular-nums}
+.compare th,.compare td{padding:8px 6px;border-bottom:1px solid var(--plate-line);text-align:left;vertical-align:top}
+.compare thead th{font-size:14px;color:var(--ink-soft);font-weight:600}
+.compare td{font-weight:600;white-space:nowrap}
+.compare tbody th{font-weight:500}
+.compare th small{display:block;font-weight:400;font-size:13px;color:var(--ink-soft)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 4px}
+.twist{margin-top:18px;padding-top:14px;border-top:2px dashed var(--plate-line)}
+.twist h3{font-family:var(--f-display);font-size:24px;margin:0 0 6px}
+
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:.2}}
+@media (max-width:920px){ .stage{grid-template-columns:1fr} .eng-grid{grid-template-columns:1fr} }
+@media (max-width:760px){ .board{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:10px;padding:0 10px} .card h2{font-size:27px} }
+@media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none !important;transition:none !important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Blackout!</h1>
+    <p class="lede">One battery has to restart a whole town. Can you bring it back without tripping it?</p>
+  </div>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Time of the blackout">
+      <button type="button" data-hour="8" aria-pressed="false">8 am</button>
+      <button type="button" data-hour="12" aria-pressed="true">Noon</button>
+      <button type="button" data-hour="19" aria-pressed="false">7 pm</button>
+      <button type="button" data-hour="23" aria-pressed="false">11 pm</button>
+    </div>
+    <button type="button" class="btn-quiet" id="btn-sound" aria-pressed="true">Sound on</button>
+    <button type="button" class="btn" id="btn-reset">Start over</button>
+  </div>
+</header>
+
+<main class="stage">
+  <div class="scene-wrap">
+    <svg id="scene" viewBox="0 0 960 500" role="img" aria-label="A small town microgrid: the grid, a battery, a solar plant, a diesel generator, a hospital, homes, a school, a water works and a factory, joined by power lines."></svg>
+    <p id="msg" class="msg" role="status" aria-live="polite">The town is running on the grid.</p>
+  </div>
+
+  <aside class="panel" aria-label="Battery inverter display">
+    <p class="panel-title">Battery inverter <span id="inv-max">400 kW max</span></p>
+    <svg class="dial" viewBox="0 0 200 116" aria-hidden="true">
+      <path id="arc-g" fill="none" stroke="#1FA457" stroke-width="14"/>
+      <path id="arc-a" fill="none" stroke="#E39A0B" stroke-width="14"/>
+      <path id="arc-r" fill="none" stroke="#E8442E" stroke-width="14"/>
+      <text x="20" y="114" class="dial-t" text-anchor="middle">0</text>
+      <text x="180" y="114" class="dial-t" text-anchor="middle">100 %</text>
+      <g id="needle"><line x1="100" y1="100" x2="100" y2="34" stroke="#1E2A3A" stroke-width="4" stroke-linecap="round"/><circle cx="100" cy="100" r="7" fill="#1E2A3A"/></g>
+    </svg>
+    <p class="dial-num"><span id="d-val">–</span><span class="unit">%</span></p>
+    <p class="dial-cap" id="d-cap">Grid is on</p>
+    <div class="lcd">
+      <div class="row"><span>Battery</span><b id="v-batt">60 %</b></div>
+      <div class="bar"><i id="b-batt"></i></div>
+      <div class="row"><span>Solar</span><b id="v-sun">–</b></div>
+      <div class="row"><span>Diesel</span><b id="v-gen">Off</b></div>
+      <div class="row"><span>Diesel burned</span><b id="v-dsl">0 L</b></div>
+      <div class="row"><span>Load served</span><b id="v-home">–</b></div>
+      <div class="bar"><i id="b-home"></i></div>
+      <div class="row"><span>Time</span><b id="v-time">0.0 s</b></div>
+      <div class="row"><span>Trips</span><b id="v-trips">0</b></div>
+    </div>
+  </aside>
+</main>
+
+<section class="board-wrap" aria-label="Control panel">
+  <div class="plate"><div class="board" id="board"></div></div>
+  <div class="board-actions">
+    <button type="button" class="btn primary" id="btn-smart">Let the smart controller try</button>
+  </div>
+  <ol class="ribbon" id="ribbon" aria-label="Smart controller's order" hidden></ol>
+</section>
+
+<details class="engineer" id="eng">
+  <summary>Engineer view: what is really happening</summary>
+  <div class="eng-grid">
+    <div>
+      <h3>Where we are in the black start</h3>
+      <ol class="stages">
+        <li data-st="0">Normal: grid connected</li>
+        <li data-st="1">Blackout: dead bus</li>
+        <li data-st="2">Battery builds the voltage (grid-forming)</li>
+        <li data-st="3">Loads and sources switched back, one at a time</li>
+        <li data-st="4">Everything restored, still islanded</li>
+      </ol>
+      <h3>From this game to the Simulink model</h3>
+      <table class="map">
+        <tr><th>Battery</th><td>BESS, switched to grid-forming after the blackout</td></tr>
+        <tr><th>Hospital, Homes</th><td>Load 1 and Load 2 (cri_load1, cri_load2)</td></tr>
+        <tr><th>School, Water works, Factory</th><td>Load 3, 4 and 5 (varload3, varload4, varload5)</td></tr>
+        <tr><th>Solar plant</th><td>PV array: follows an existing voltage, so it cannot restart the system alone</td></tr>
+        <tr><th>Diesel generator</th><td>DG</td></tr>
+        <tr><th>Grid link with the red ✕</th><td>PCC breaker, open after the grid fault</td></tr>
+        <tr><th>Inverter dial</th><td>BESS loading; above 100 % voltage and frequency leave their limits</td></tr>
+        <tr><th>Smart controller</th><td>Rule-based Scenario Manager (settle 0.2 s, gap 3 s) with the best of all 5,040 switching orders</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Live signals</h3>
+      <canvas id="chart" class="chart" role="img" aria-label="Voltage, frequency and power over the last 30 seconds"></canvas>
+      <h3>Load and solar profiles over the day</h3>
+      <canvas id="pchart" class="chart" role="img" aria-label="Load and solar power over 24 hours, with the chosen blackout time marked"></canvas>
+      <p class="data-note" id="data-note"></p>
+      <p class="small">A simplified teaching model, not the full Simulink model. Voltage = 1 − 0.08 × battery loading and frequency = 50 − 0.5 × battery loading (droop style). Start-up jolts (cold-load pickup) fade with a 0.5 s time constant. The battery trips above 125 % at once, or above 100 % for 1 s. One second of game time uses one minute of battery and diesel.</p>
+    </div>
+  </div>
+</details>
+</div>
+
+<!-- intro -->
+<div class="overlay" id="intro" role="dialog" aria-modal="true" aria-labelledby="intro-h">
+  <div class="card">
+    <h2 id="intro-h">The town’s grid is about to fail.</h2>
+    <p>When it does, every building goes dark. Only the big battery can start the power again, and it can give only <b id="intro-bess">400 kW</b>. Switch on too much at once and it trips.</p>
+    <p><strong>Your job:</strong> bring all five buildings back as fast as you can. Solar and diesel can help, if you switch them on.</p>
+    <div class="pick"><span>When does the blackout happen?</span>
+      <div class="seg" role="group" aria-label="Time of the blackout">
+        <button type="button" data-hour="8" aria-pressed="false">8 am</button>
+        <button type="button" data-hour="12" aria-pressed="true">Noon</button>
+        <button type="button" data-hour="19" aria-pressed="false">7 pm</button>
+        <button type="button" data-hour="23" aria-pressed="false">11 pm</button>
+      </div>
+    </div>
+    <p class="facts" id="intro-facts"></p>
+    <button type="button" class="btn primary big" id="btn-start">Cut the grid</button>
+  </div>
+</div>
+
+<!-- smart controller planning -->
+<div class="overlay" id="search" role="dialog" aria-modal="true" aria-labelledby="search-h" hidden>
+  <div class="card">
+    <h2 id="search-h">The smart controller is planning</h2>
+    <p>Before touching a single switch, it tries every possible order on a copy of the town and keeps the best one.</p>
+    <div class="progress"><i id="s-bar"></i></div>
+    <p class="count"><b id="s-count">0</b> of <span id="s-total">5,040</span> orders checked. <b id="s-ok">0</b> of them restore the town without a trip.</p>
+    <div id="s-best" hidden>
+      <p><strong>Best order found:</strong></p>
+      <ol class="chips" id="s-order"></ol>
+    </div>
+  </div>
+</div>
+
+<!-- results -->
+<div class="overlay" id="result" role="dialog" aria-modal="true" aria-labelledby="res-h" hidden>
+  <div class="card wide">
+    <h2 id="res-h"></h2>
+    <table class="compare">
+      <thead><tr><th scope="col"><span class="sr">Measure</span></th><th scope="col">You</th><th scope="col">Smart controller</th></tr></thead>
+      <tbody id="res-body"></tbody>
+    </table>
+    <p id="res-note"></p>
+    <div id="res-order-wrap" hidden>
+      <p class="small">The smart controller’s order:</p>
+      <ol class="chips" id="res-order"></ol>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn primary" id="btn-smart2">Watch the smart controller</button>
+      <button type="button" class="btn" id="btn-again">Play again</button>
+      <button type="button" class="btn" id="btn-other">Try another time</button>
+    </div>
+    <section class="twist">
+      <h3>What you just did is called black start</h3>
+      <p>After a total blackout, a microgrid cannot wait for the main grid. A battery forms the voltage first, and every load and source is brought back one step at a time, in an order that keeps voltage and frequency inside safe limits.</p>
+      <p>Our research at the SPEL Lab, IIT Gandhinagar, lets an algorithm choose that order automatically: the most load back in the least time, using the most solar and the least diesel.</p>
+    </section>
+  </div>
+</div>
+
+<!-- Your own MATLAB data: put profiles.js (made by export_profiles.m) next to this file. -->
+<script src="profiles.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* ======================= DATA =======================
+   Sample profiles below are placeholders. Run export_profiles.m in MATLAB:
+   it writes profiles.js next to this file, and the page then uses your data. */
+const SAMPLE = {
+  source: 'sample',
+  stepMin: 60,                       // minutes between points (25 points = 0:00 to 24:00)
+  loads: {                           // kW
+    L1: [95,92,90,90,92,98,108,118,125,128,130,130,128,128,126,124,122,120,118,115,110,105,100,97,95],
+    L2: [70,60,55,52,55,70,110,140,120,90,75,70,72,70,68,75,95,140,190,210,200,170,120,90,70],
+    L3: [10,10,10,10,10,12,30,90,140,150,150,145,140,135,120,80,40,25,20,15,12,10,10,10,10],
+    L4: [40,40,40,40,60,110,120,110,80,60,55,55,55,55,55,60,80,110,120,100,70,50,45,40,40],
+    L5: [60,60,60,60,60,70,150,200,210,215,220,220,180,210,215,210,190,120,90,80,70,65,60,60,60]
+  },
+  pv: [0,0,0,0,0,0,10,60,150,260,360,440,480,470,420,340,240,130,40,5,0,0,0,0,0],
+  ratings: { bessKW: 400, bessKWh: 1000, soc0: 60, socMin: 20, chargeKW: 400, dgKW: 500, dgLperKWh: 0.25, dgIdleLph: 5 }
+};
+const DATA = (window.MICROGRID_DATA && window.MICROGRID_DATA.loads) ? window.MICROGRID_DATA : SAMPLE;
+const R = Object.assign({}, SAMPLE.ratings, DATA.ratings || {});
+
+/* ======================= SETTINGS ======================= */
+const CFG = {
+  tripInstant: 1.25, overloadTime: 1.0,     // battery trips above 125 % at once, or above 100 % for 1 s
+  surgeTau: 0.5,                            // start-up jolts fade (s)
+  settleFrac: 0.02,                         // jolt below 2 % of the battery rating = settled
+  settle: 0.2, gap: 3.0,                    // smart controller: settled for 0.2 s, at least 3 s between switchings
+  holdTime: 1.0,                            // all five on and calm for 1 s = restored
+  pvRampTime: 2.0,                          // solar ramps up over 2 s after connection
+  dgCrank: 3.0, dgTau: 1.0, dgReserveFrac: 0.3,
+  timeScale: 60,                            // 1 s of game = 1 min of battery and diesel use
+  cutTime: 1.2, bootTime: 1.6, restartCut: 1.0, restartBoot: 2.0,
+  horizon: 30, roundLimit: 60,
+  w: { load: 1.0, pv: 0.5, dg: 0.2 }        // weights from the restoration objective
+};
+
+const ITEMS = [
+  { id:'L1', name:'Hospital',         kind:'load', kick:1.6, draw:'hospital', icon:'hospital', fx:300, fy:250, badge:[354,148], lx:300, ly:112, top:true },
+  { id:'L2', name:'Homes',            kind:'load', kick:1.4, draw:'homes',    icon:'home',     fx:441, fy:250, badge:[500,160], lx:443, ly:112, top:true },
+  { id:'L3', name:'School',           kind:'load', kick:1.3, draw:'school',   icon:'school',   fx:750, fy:250, badge:[818,172], lx:750, ly:112, top:true },
+  { id:'L4', name:'Water works',      kind:'load', kick:2.2, draw:'water',    icon:'drop',     fx:444, fy:352, badge:[474,354], lx:466, ly:458, top:false },
+  { id:'L5', name:'Factory',          kind:'load', kick:2.5, draw:'factory',  icon:'factory',  fx:620, fy:378, badge:[678,372], lx:621, ly:458, top:false },
+  { id:'PV', name:'Solar plant',      kind:'pv',             draw:'solar',    icon:'sun',      fx:592, fy:250, badge:[660,206], lx:600, ly:112, top:true },
+  { id:'DG', name:'Diesel generator', kind:'dg',             draw:'diesel',   icon:'gen',      fx:800, fy:395, badge:[846,390], lx:801, ly:458, top:false }
+];
+const NL = 5, PV = 5, DG = 6, NI = 7;
+const DT = 0.05;
+const DEC_SURGE = Math.exp(-DT / CFG.surgeTau);
+const DG_ALPHA = 1 - Math.exp(-DT / CFG.dgTau);
+const perStepH = DT * CFG.timeScale / 3600;      // hours of operation per simulation step
+
+const $ = q => document.querySelector(q);
+const $$ = q => Array.from(document.querySelectorAll(q));
+const fmt = n => Math.round(n).toLocaleString('en-IN');
+const clamp = v => Math.max(0, Math.min(1, v));
+const hourLabel = h => h === 12 ? 'noon' : h === 0 ? 'midnight' : (h < 12 ? `${h} am` : `${h - 12} pm`);
+
+/* ---------------- profiles ---------------- */
+function prof(arr, hour) {
+  const x = hour * 60 / DATA.stepMin, i = Math.floor(x), f = x - i;
+  const a = arr[Math.min(i, arr.length - 1)], b = arr[Math.min(i + 1, arr.length - 1)];
+  return a + (b - a) * f;
+}
+function scenario(hour) {
+  const P = ITEMS.slice(0, NL).map(it => Math.max(0, prof(DATA.loads[it.id], hour)));
+  return { hour, P, total: P.reduce((a, b) => a + b, 0), pv: Math.max(0, prof(DATA.pv, hour)) };
+}
+
+/* ---------------- simulation ---------------- */
+function newState(sc) {
+  return {
+    sc, t: 0, phase: 'cut', phaseLeft: CFG.cutTime, bootDur: CFG.bootTime, firstCut: true,
+    on: new Array(NI).fill(false), onAt: new Array(NI).fill(0), surge: new Array(NL).fill(0), seq: [],
+    dgOut: 0, dgCrank: 0, dgRate: 0, pvRamp: 0,
+    soc: R.soc0, overAcc: 0, trips: 0, tripReason: null, lastOn: -1,
+    tReady: null, loadInt: 0, pvUsedInt: 0, pvAvailInt: 0, dgInt: 0, diesel: 0, dieselTot: 0,
+    allOnSince: null, holdT: 0, done: false, restoreTime: null, k: 0,
+    out: { load: 0, surge: 0, pvUsed: 0, inv: 0, frac: 0, V: 0, f: 0, healthy: false }
+  };
+}
+function loadOn(s) { let p = 0; for (let i = 0; i < NL; i++) if (s.on[i]) p += s.sc.P[i]; return p; }
+function servedFrac(s) { return s.sc.total > 0 ? loadOn(s) / s.sc.total : 0; }
+function countOn(s) { let n = 0; for (let i = 0; i < NL; i++) if (s.on[i]) n++; return n; }
+
+function switchOn(s, i) {
+  if (s.phase !== 'run' || s.on[i]) return false;
+  s.on[i] = true; s.onAt[i] = s.t; s.lastOn = i; s.seq.push(i);
+  if (i < NL) s.surge[i] = (ITEMS[i].kick - 1) * s.sc.P[i];
+  if (i === DG) { s.dgCrank = CFG.dgCrank; s.dgOut = 0; }
+  if (i === PV) s.pvRamp = 0;
+  return true;
+}
+function switchOff(s, i) {
+  if (!s.on[i]) return false;
+  s.on[i] = false; s.seq = s.seq.filter(x => x !== i);
+  if (i < NL) s.surge[i] = 0;
+  if (i === DG) { s.dgOut = 0; s.dgCrank = 0; }
+  if (i === PV) s.pvRamp = 0;
+  return true;
+}
+function trip(s, reason) {
+  s.trips++; s.tripReason = reason; s.firstCut = false;
+  s.phase = 'cut'; s.phaseLeft = CFG.restartCut; s.bootDur = CFG.restartBoot;
+  s.on.fill(false); s.surge.fill(0); s.seq = [];
+  s.dgOut = 0; s.dgCrank = 0; s.dgRate = 0; s.pvRamp = 0; s.overAcc = 0; s.allOnSince = null; s.holdT = 0;
+  const o = s.out; o.load = 0; o.surge = 0; o.pvUsed = 0; o.inv = 0; o.frac = 0; o.V = 0; o.f = 0; o.healthy = false;
+}
+function accumulate(s) {
+  if (s.tReady === null || s.t - s.tReady > CFG.horizon + 1e-9) return;
+  s.loadInt += servedFrac(s) * DT;
+  s.pvUsedInt += s.out.pvUsed * DT;
+  s.pvAvailInt += s.sc.pv * DT;
+  s.dgInt += s.dgOut * DT;
+  s.diesel += s.dgRate * perStepH;
+}
+function step(s) {
+  s.t += DT;
+  const o = s.out, sc = s.sc;
+  if (s.phase !== 'run') {
+    s.phaseLeft -= DT;
+    o.load = 0; o.surge = 0; o.pvUsed = 0; o.inv = 0; o.frac = 0; o.healthy = false; s.dgRate = 0;
+    if (s.phase === 'cut') {
+      o.V = 0; o.f = 0;
+      if (s.phaseLeft <= 1e-9) { s.phase = 'boot'; s.phaseLeft = s.bootDur; }
+    } else {
+      o.V = clamp(1 - s.phaseLeft / s.bootDur); o.f = 50;
+      if (s.phaseLeft <= 1e-9) { s.phase = 'run'; o.V = 1; if (s.tReady === null) s.tReady = s.t; }
+    }
+    accumulate(s);
+    return;
+  }
+  let load = 0, surge = 0, maxSurge = 0;
+  for (let i = 0; i < NL; i++) {
+    if (s.on[i]) {
+      load += sc.P[i];
+      s.surge[i] *= DEC_SURGE; surge += s.surge[i];
+      if (s.surge[i] > maxSurge) maxSurge = s.surge[i];
+    }
+  }
+  let pvUsed = 0;
+  if (s.on[PV]) {
+    s.pvRamp = Math.min(1, s.pvRamp + DT / CFG.pvRampTime);
+    if (sc.pv > 0) { const charge = s.soc < 95 ? R.chargeKW : 0; pvUsed = Math.min(sc.pv * s.pvRamp, load + charge); }
+  }
+  s.dgRate = 0;
+  if (s.on[DG]) {
+    if (s.dgCrank > 0) { s.dgCrank = Math.max(0, s.dgCrank - DT); s.dgOut = 0; s.dgRate = R.dgIdleLph; }
+    else {
+      const target = Math.min(R.dgKW, Math.max(0, load - Math.min(pvUsed, load) - CFG.dgReserveFrac * R.bessKW));
+      s.dgOut += (target - s.dgOut) * DG_ALPHA;
+      s.dgRate = R.dgIdleLph + R.dgLperKWh * s.dgOut;
+    }
+    s.dieselTot += s.dgRate * perStepH;
+  }
+  const inv = load + surge - pvUsed - s.dgOut;               // kW; negative = battery charging
+  const frac = Math.max(0, inv) / R.bessKW;
+  s.soc = Math.min(100, Math.max(0, s.soc - inv * perStepH / R.bessKWh * 100));
+  s.overAcc = frac > 1 ? s.overAcc + DT : Math.max(0, s.overAcc - DT);
+  o.load = load; o.surge = surge; o.pvUsed = pvUsed; o.inv = inv; o.frac = frac;
+  o.V = 1 - 0.08 * frac; o.f = 50 - 0.5 * frac;
+  o.healthy = frac <= 1 && maxSurge < CFG.settleFrac * R.bessKW;
+
+  if (frac > CFG.tripInstant || s.overAcc > CFG.overloadTime) {
+    const steady = Math.max(0, load - Math.min(pvUsed, load) - s.dgOut) / R.bessKW;
+    trip(s, steady > 1 ? 'steady' : 'kick'); return;
+  }
+  if (s.soc <= R.socMin) { trip(s, 'battery'); return; }
+  accumulate(s);
+
+  if (countOn(s) === NL) {
+    if (s.allOnSince === null) s.allOnSince = s.t;
+    s.holdT = o.healthy ? s.holdT + DT : 0;
+    if (!s.done && s.holdT >= CFG.holdTime - 1e-9) { s.done = true; s.restoreTime = s.allOnSince - s.tReady; }
+  } else { s.allOnSince = null; s.holdT = 0; }
+}
+function finalize(s) {
+  const el = s.tReady === null ? 0 : Math.min(CFG.horizon, s.t - s.tReady);
+  const rem = Math.max(0, CFG.horizon - el);
+  const loadPct = (s.loadInt + rem * servedFrac(s)) / CFG.horizon * 100;
+  const pvAvail = s.pvAvailInt + rem * s.sc.pv;
+  const pvPct = pvAvail > 0 ? (s.pvUsedInt + rem * s.out.pvUsed) / pvAvail * 100 : null;
+  const dgPct = (s.dgInt + rem * s.dgOut) / (R.dgKW * CFG.horizon) * 100;
+  const diesel = s.diesel + rem * s.dgRate * CFG.timeScale / 3600;
+  return { done: s.done, restoreTime: s.restoreTime, trips: s.trips, loadPct, pvPct, dgPct, diesel, count: countOn(s) };
+}
+const score = r => CFG.w.load * r.loadPct + CFG.w.pv * (r.pvPct || 0) - CFG.w.dg * r.dgPct;
+
+/* rule-based controller, as in the Scenario Manager */
+function newCtl() { return { k: 0, tLast: null, okSince: -1 }; }
+function smartControl(s, order, c) {
+  if (s.done || s.phase !== 'run' || c.k >= order.length) return;
+  if (c.tLast === null) c.tLast = s.t;
+  if (s.out.healthy) { if (c.okSince < 0) c.okSince = s.t; } else c.okSince = -1;
+  const settled = c.okSince >= 0 && (s.t - c.okSince) >= CFG.settle - 1e-9;
+  if (settled && (s.t - c.tLast) >= CFG.gap - 1e-9) {
+    switchOn(s, order[c.k]); c.k++; c.tLast = s.t; c.okSince = -1;
+  }
+}
+function runOrder(order, sc) {
+  const s = newState(sc), c = newCtl();
+  for (let n = 0; n < 2400; n++) {
+    step(s);
+    if (s.trips > 0) return null;
+    smartControl(s, order, c);
+    if (s.done) { s.k = c.k; return s; }
+    if (s.tReady !== null && s.t - s.tReady >= CFG.horizon) return null;
+  }
+  return null;
+}
+function permutations(a) {
+  const arr = a.slice(), n = arr.length, c = new Array(n).fill(0), out = [arr.slice()];
+  let i = 1;
+  while (i < n) {
+    if (c[i] < i) {
+      const j = i % 2 === 0 ? 0 : c[i];
+      const t = arr[j]; arr[j] = arr[i]; arr[i] = t;
+      out.push(arr.slice()); c[i]++; i = 1;
+    } else { c[i] = 0; i++; }
+  }
+  return out;
+}
+const PERMS = permutations([0, 1, 2, 3, 4, 5, 6]);   // 7! = 5,040 orders
+function optimize(hour, token, onProgress, onDone) {
+  if (app.best[hour]) { const b = app.best[hour]; onProgress(b.total, b.total, b.feasible); onDone(b); return; }
+  const sc = scenario(hour), total = PERMS.length;
+  let idx = 0, feasible = 0, best = null;
+  (function chunk() {
+    if (token !== app.token) return;
+    const t0 = performance.now();
+    while (idx < total && performance.now() - t0 < 25) {
+      const order = PERMS[idx];
+      const s = runOrder(order, sc);
+      if (s) {
+        feasible++;
+        const r = finalize(s), J = score(r);
+        if (!best || J > best.J + 1e-9) best = { order: order.slice(0, s.k), r, J };
+      }
+      idx++;
+    }
+    onProgress(idx, total, feasible);
+    if (idx < total) setTimeout(chunk, 0);
+    else { const res = best ? Object.assign({}, best, { total, feasible }) : { order: null, total, feasible }; app.best[hour] = res; onDone(res); }
+  })();
+}
+
+/* ---------------- sound ---------------- */
+let AC = null;
+function tone(freq, dur, vol, type) {
+  if (!app.sound) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.04, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime + dur + 0.02);
+  } catch (e) { /* sound is optional */ }
+}
+const click = () => tone(900, 0.03, 0.05, 'triangle');
+const beep = () => tone(2700, 0.08, 0.03, 'square');
+const tripSound = () => tone(1500, 0.5, 0.045, 'square');
+const chime = () => { tone(880, 0.16, 0.05, 'sine'); setTimeout(() => tone(1320, 0.28, 0.05, 'sine'), 150); };
+
+/* ---------------- app state ---------------- */
+const HOURS = [8, 12, 19, 23];
+const app = { hour: 12, sc: null, state: 'intro', sound: true, token: 0, needle: 0, beepT: 0, hist: [],
+              results: {}, best: {}, lit: new Array(NI + 1).fill(1) };
+app.sc = scenario(app.hour);
+let live = null;
+
+/* ---------------- scene ---------------- */
+const C = { bg:'#14213D', dead:'#34405C', amber:'#F2A65A', dot:'#FFE6BF', text:'#F7F6F2', muted:'#9AA6BD', green:'#2BB673', red:'#E5484D', steel:'#8C99AD' };
+const LIT = { body:'#E9EDF4', roof:'#C3CCDA', tile:'#D9826B', win:'#FFD166', cross:'#E5484D', panel:'#3E7CC9', pline:'#9CC3F0', sun:'#FFD166', water:'#5DB7E8', steel:'#8C99AD', gen:'#3E8E68', bat:'#2BB673', flag:'#E5484D' };
+const DEAD = { body:'#26314B', roof:'#222C44', tile:'#222C44', win:'#1C263D', cross:'#34405C', panel:'#26314B', pline:'#34405C', sun:'#34405C', water:'#26314B', steel:'#34405C', gen:'#26314B', bat:'#34405C', flag:'#34405C' };
+const DRAW = {
+  hospital: p => `<rect x="250" y="150" width="100" height="100" rx="4" fill="${p.body}"/>
+    <rect x="294" y="157" width="12" height="32" fill="${p.cross}"/><rect x="284" y="167" width="32" height="12" fill="${p.cross}"/>
+    ${[0,1].map(r=>[0,1,2,3].map(c=>`<rect x="${258+c*22}" y="${198+r*20}" width="14" height="12" fill="${p.win}"/>`).join('')).join('')}
+    <rect x="291" y="236" width="18" height="14" fill="${p.roof}"/>`,
+  homes: p => `<rect x="392" y="200" width="44" height="50" fill="${p.body}"/><polygon points="386,202 414,176 442,202" fill="${p.tile}"/>
+    <rect x="400" y="212" width="12" height="12" fill="${p.win}"/><rect x="418" y="212" width="12" height="12" fill="${p.win}"/><rect x="408" y="232" width="10" height="18" fill="${p.roof}"/>
+    <rect x="446" y="190" width="48" height="60" fill="${p.body}"/><polygon points="440,192 470,162 500,192" fill="${p.tile}"/>
+    <rect x="454" y="202" width="12" height="12" fill="${p.win}"/><rect x="474" y="202" width="12" height="12" fill="${p.win}"/>
+    <rect x="454" y="224" width="12" height="12" fill="${p.win}"/><rect x="476" y="230" width="11" height="20" fill="${p.roof}"/>`,
+  solar: p => `${[0,1,2].map(i=>{const x=532+i*40;return `<polygon points="${x},248 ${x+10},212 ${x+40},212 ${x+30},248" fill="${p.panel}"/>
+      <line x1="${x+25}" y1="212" x2="${x+15}" y2="248" stroke="${p.pline}" stroke-width="1.5"/><line x1="${x+5}" y1="230" x2="${x+35}" y2="230" stroke="${p.pline}" stroke-width="1.5"/>`}).join('')}
+    <rect x="530" y="248" width="124" height="3" fill="${p.steel}"/>`,
+  school: p => `<rect x="696" y="176" width="108" height="6" fill="${p.roof}"/><rect x="700" y="182" width="100" height="68" fill="${p.body}"/>
+    <polygon points="728,178 750,156 772,178" fill="${p.tile}"/><circle cx="750" cy="170" r="5" fill="${p.win}"/>
+    <rect x="708" y="192" width="14" height="12" fill="${p.win}"/><rect x="778" y="192" width="14" height="12" fill="${p.win}"/>
+    <rect x="708" y="216" width="14" height="12" fill="${p.win}"/><rect x="778" y="216" width="14" height="12" fill="${p.win}"/>
+    <rect x="740" y="222" width="20" height="28" fill="${p.roof}"/>
+    <line x1="796" y1="176" x2="796" y2="138" stroke="${p.steel}" stroke-width="2.5"/><polygon points="796,138 814,144 796,150" fill="${p.flag}"/>`,
+  water: p => `<line x1="426" y1="384" x2="420" y2="434" stroke="${p.steel}" stroke-width="3"/><line x1="462" y1="384" x2="468" y2="434" stroke="${p.steel}" stroke-width="3"/>
+    <line x1="424" y1="400" x2="466" y2="420" stroke="${p.steel}" stroke-width="2"/><line x1="466" y1="400" x2="424" y2="420" stroke="${p.steel}" stroke-width="2"/>
+    <rect x="420" y="352" width="48" height="34" rx="10" fill="${p.water}"/>
+    <rect x="474" y="406" width="40" height="29" fill="${p.body}"/><rect x="472" y="402" width="44" height="5" fill="${p.roof}"/><rect x="482" y="414" width="10" height="9" fill="${p.win}"/>`,
+  factory: p => `<rect x="652" y="350" width="12" height="40" fill="${p.steel}"/>
+    <polygon points="575,392 575,378 598,392 598,378 621,392 621,378 644,392 644,378 667,392" fill="${p.roof}"/>
+    <rect x="575" y="392" width="92" height="43" fill="${p.body}"/>${[0,1,2,3].map(i=>`<rect x="${584+i*20}" y="405" width="12" height="10" fill="${p.win}"/>`).join('')}`,
+  diesel: p => `<rect x="772" y="378" width="7" height="19" fill="${p.steel}"/><rect x="765" y="395" width="72" height="40" rx="5" fill="${p.gen}"/>
+    ${[0,1,2,3].map(i=>`<line x1="${774+i*7}" y1="404" x2="${774+i*7}" y2="426" stroke="${p.roof}" stroke-width="2.5"/>`).join('')}<rect x="808" y="403" width="20" height="12" rx="2" fill="${p.body}"/>`,
+  battery: p => `<rect x="215" y="388" width="90" height="47" rx="4" fill="${p.body}"/>
+    <rect x="224" y="398" width="64" height="28" rx="4" fill="none" stroke="${p.bat}" stroke-width="3"/><rect x="288" y="406" width="6" height="12" fill="${p.bat}"/>
+    ${[0,1,2,3].map(i=>`<rect x="${229+i*14}" y="403" width="10" height="18" fill="${p.bat}"/>`).join('')}`
+};
+const BESS = { id:'BESS', name:'Battery', draw:'battery', fx:260, fy:388, lx:260, ly:458, kind:'bess' };
+const BUS_Y = 300, BUS_X0 = 161, BUS_X1 = 890, BESS_X = 260;
+const SCENE_ITEMS = ITEMS.concat([BESS]);
+
+(function buildScene() {
+  let h = `<rect width="960" height="500" fill="${C.bg}"/>`;
+  h += `<g stroke="${C.steel}" stroke-width="2.5" fill="none"><line x1="60" y1="382" x2="75" y2="232"/><line x1="90" y1="382" x2="75" y2="232"/>
+    <line x1="52" y1="262" x2="98" y2="262"/><line x1="48" y1="300" x2="102" y2="300"/><line x1="63" y1="340" x2="88" y2="300"/>
+    <line x1="87" y1="340" x2="62" y2="300"/><line x1="66" y1="300" x2="84" y2="262"/><line x1="84" y1="300" x2="66" y2="262"/></g>`;
+  h += `<text x="75" y="218" text-anchor="middle" font-size="15" font-weight="600" fill="${C.muted}">Grid</text>`;
+  h += `<polygon id="bolt" points="98,150 80,198 93,198 76,240 110,186 96,186 110,150" fill="#FFF3C4" opacity="0"/>`;
+  h += `<line x1="0" y1="300" x2="139" y2="300" stroke="${C.dead}" stroke-width="6"/>`;
+  h += `<line id="gridLit" x1="0" y1="300" x2="139" y2="300" stroke="${C.amber}" stroke-width="6"/>`;
+  h += `<line id="gridDots" x1="0" y1="300" x2="139" y2="300" stroke="${C.dot}" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 18"/>`;
+  h += `<line x1="${BUS_X0}" y1="${BUS_Y}" x2="${BUS_X1}" y2="${BUS_Y}" stroke="${C.dead}" stroke-width="6" stroke-linecap="round"/>`;
+  h += `<line id="busLit" x1="${BUS_X0}" y1="${BUS_Y}" x2="${BUS_X1}" y2="${BUS_Y}" stroke="${C.amber}" stroke-width="6" stroke-linecap="round"/>`;
+  h += `<line id="busDotsAll" x1="${BUS_X0}" y1="${BUS_Y}" x2="${BUS_X1}" y2="${BUS_Y}" stroke="${C.dot}" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 18"/>`;
+  h += `<line id="busDotsL" x1="${BESS_X}" y1="${BUS_Y}" x2="${BUS_X0}" y2="${BUS_Y}" stroke="${C.dot}" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 18"/>`;
+  h += `<line id="busDotsR" x1="${BESS_X}" y1="${BUS_Y}" x2="${BUS_X1}" y2="${BUS_Y}" stroke="${C.dot}" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 18"/>`;
+  SCENE_ITEMS.forEach(it => {
+    const a = [it.fx, BUS_Y], b = [it.fx, it.fy], src = it.kind !== 'load';
+    const from = src ? b : a, to = src ? a : b;
+    h += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${C.dead}" stroke-width="4"/>`;
+    h += `<line id="f_${it.id}" x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}" stroke="${C.amber}" stroke-width="4" opacity="0" data-sx="${from[0]}" data-sy="${from[1]}" data-ex="${to[0]}" data-ey="${to[1]}"/>`;
+    h += `<line id="fd_${it.id}" x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}" stroke="${C.dot}" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="0.1 14" opacity="0"/>`;
+    h += `<g id="w_${it.id}"><g>${DRAW[it.draw](DEAD)}</g><g id="lit_${it.id}">${DRAW[it.draw](LIT)}</g></g>`;
+    const nameY = it.top === false || it.kind === 'bess' ? it.ly : it.ly;
+    h += `<text x="${it.lx}" y="${nameY}" text-anchor="middle" font-size="15" font-weight="600" fill="${C.text}">${it.name}</text>`;
+    h += `<text id="kw_${it.id}" x="${it.lx}" y="${nameY + 18}" text-anchor="middle" font-size="13" fill="${C.muted}"></text>`;
+    if (it.badge) h += `<g id="b_${it.id}" opacity="0"><circle cx="${it.badge[0]}" cy="${it.badge[1]}" r="14" fill="${C.amber}"/>
+      <text id="bt_${it.id}" x="${it.badge[0]}" y="${it.badge[1] + 5.5}" text-anchor="middle" font-size="16" font-weight="700" fill="${C.bg}"></text></g>`;
+  });
+  h += `<g id="pccClosed"><rect x="139" y="289" width="22" height="22" rx="4" fill="${C.green}"/><line x1="143" y1="300" x2="157" y2="300" stroke="#fff" stroke-width="3"/></g>`;
+  h += `<g id="pccOpen" opacity="0"><rect x="139" y="289" width="22" height="22" rx="4" fill="${C.red}"/>
+    <line x1="144" y1="294" x2="156" y2="306" stroke="#fff" stroke-width="3" stroke-linecap="round"/><line x1="156" y1="294" x2="144" y2="306" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g>`;
+  h += `<rect id="ring" x="215" y="388" width="90" height="47" rx="8" fill="none" stroke="${C.green}" stroke-width="3" opacity="0"/>`;
+  h += [0, 1, 2].map(i => `<circle id="smoke${i}" cx="775" cy="372" r="5" fill="#9AA6BD" opacity="0"/>`).join('');
+  h += `<text id="tag" x="36" y="56" font-size="26" font-weight="700" fill="${C.text}"></text>`;
+  h += `<text id="clock" x="868" y="56" text-anchor="end" font-size="22" font-weight="600" fill="${C.text}"></text>`;
+  h += `<g id="sunIcon"><circle cx="900" cy="48" r="11" fill="#FFD166"/>${[0,45,90,135,180,225,270,315].map(a=>{const r=a*Math.PI/180;return `<line x1="${900+15*Math.cos(r)}" y1="${48+15*Math.sin(r)}" x2="${900+21*Math.cos(r)}" y2="${48+21*Math.sin(r)}" stroke="#FFD166" stroke-width="2.5" stroke-linecap="round"/>`}).join('')}</g>`;
+  h += `<g id="moonIcon"><circle cx="900" cy="48" r="13" fill="#F1EAD2"/><circle cx="907" cy="42" r="11" fill="${C.bg}"/></g>`;
+  $('#scene').innerHTML = h;
+})();
+
+/* ---------------- switches ---------------- */
+const ICONS = {
+  hospital: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>',
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',
+  school: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
+  drop: '<path d="M12 3s-6 6.5-6 11a6 6 0 0 0 12 0c0-4.5-6-11-6-11z"/>',
+  factory: '<path d="M3 20V10l5 3V10l5 3V10l5 3V4h3v16z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>',
+  gen: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M13 9l-3 4h4l-3 4M7 7V5h4v2"/>'
+};
+const SW = ITEMS.map((it, i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'sw'; b.title = `Keyboard: ${i + 1}`;
+  b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = `<span class="neon" aria-hidden="true"></span>`
+    + `<span class="rocker" aria-hidden="true"><span class="rk-top"></span><span class="rk-bot"></span></span>`
+    + `<span class="sw-name"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[it.icon]}</svg>${it.name}</span>`
+    + `<span class="sw-info" id="swi_${it.id}"></span>`;
+  b.addEventListener('click', () => onSwitch(i));
+  $('#board').appendChild(b);
+  return b;
+});
+function refreshLabels() {
+  const sc = app.sc;
+  ITEMS.forEach((it, i) => {
+    let info, kw;
+    if (i < NL) { info = `${fmt(sc.P[i])} kW now`; kw = `${fmt(sc.P[i])} kW`; }
+    else if (i === PV) { info = sc.pv > 1 ? `Up to ${fmt(sc.pv)} kW now<span class="note">Works only once the battery is on</span>` : `No sun now<span class="note">Works only once the battery is on</span>`; kw = sc.pv > 1 ? `${fmt(sc.pv)} kW available` : 'No sun'; }
+    else { info = `Up to ${fmt(R.dgKW)} kW<span class="note">${CFG.dgCrank} s to start, burns diesel</span>`; kw = `${fmt(R.dgKW)} kW max`; }
+    $('#swi_' + it.id).innerHTML = info;
+    $('#kw_' + it.id).textContent = kw;
+  });
+  $('#inv-max').textContent = `${fmt(R.bessKW)} kW max`;
+  $('#intro-bess').textContent = `${fmt(R.bessKW)} kW`;
+  $('#intro-facts').textContent = `At ${hourLabel(sc.hour)} the town needs ${fmt(sc.total)} kW. `
+    + (sc.pv > 1 ? `The solar plant can give up to ${fmt(sc.pv)} kW.` : 'There is no sun.')
+    + ` The diesel generator can give up to ${fmt(R.dgKW)} kW.`;
+  $('#clock').textContent = `${String(sc.hour).padStart(2, '0')}:00`;
+  const day = sc.pv > 1;
+  $('#sunIcon').setAttribute('opacity', day ? 1 : 0); $('#moonIcon').setAttribute('opacity', day ? 0 : 1);
+  const note = $('#data-note');
+  if (DATA.source === 'sample') { note.textContent = 'Sample profiles. Run export_profiles.m in MATLAB to use the real Simulink profiles.'; note.className = 'data-note sample'; }
+  else { note.textContent = `Profiles from MATLAB${DATA.exported ? ', exported ' + DATA.exported : ''}.`; note.className = 'data-note'; }
+}
+
+function arc(p0, p1) {
+  const r = 80, a0 = Math.PI * (1 - p0 / 100), a1 = Math.PI * (1 - p1 / 100);
+  const x0 = 100 + r * Math.cos(a0), y0 = 100 - r * Math.sin(a0), x1 = 100 + r * Math.cos(a1), y1 = 100 - r * Math.sin(a1);
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+$('#arc-g').setAttribute('d', arc(0, 80)); $('#arc-a').setAttribute('d', arc(80, 95)); $('#arc-r').setAttribute('d', arc(95, 100));
+
+/* ---------------- messages ---------------- */
+function setMsg(text, tone) { const m = $('#msg'); m.textContent = text; m.className = 'msg ' + (tone || 'info'); }
+const ON_MSG = {
+  L1: 'Hospital back. Its pumps and air handling give a jolt at the start.',
+  L2: 'Homes back. Fridges and fans start together, so there is a short jolt.',
+  L3: 'School back.',
+  L4: 'Water works back. Big pumps pull a heavy jolt when they start.',
+  L5: 'Factory back. Its motors pull the biggest jolt of all.',
+  DG: `Diesel generator starting. It needs ${CFG.dgCrank} seconds before it can help.`
+};
+
+/* ---------------- flow ---------------- */
+function showOverlay(id) {
+  ['intro', 'search', 'result'].forEach(k => { $('#' + k).hidden = (k !== id); });
+  if (id === 'intro') $('#btn-start').focus();
+  if (id === 'result') $('#btn-again').focus();
+}
+function setHour(h) {
+  app.hour = h; app.sc = scenario(h);
+  $$('[data-hour]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.hour === h ? 'true' : 'false'));
+  refreshLabels(); toIntro();
+}
+function toIntro() {
+  app.token++; live = null; app.state = 'intro'; app.hist = [];
+  $('#ribbon').hidden = true;
+  setMsg('The town is running on the grid.', 'info');
+  showOverlay('intro');
+}
+function startRound() {
+  app.token++;
+  live = { s: newState(app.sc), ctrl: 'player' };
+  app.state = 'playing'; app.hist = [];
+  $('#ribbon').hidden = true;
+  showOverlay(null);
+  tone(220, 0.35, 0.05, 'triangle');
+  setMsg('The grid has failed. Every building is dark. The battery is starting up…', 'bad');
+}
+function onSwitch(i) {
+  if (app.state !== 'playing' || !live || live.ctrl !== 'player') return;
+  const s = live.s;
+  if (s.phase !== 'run') {
+    setMsg(s.phase === 'cut' ? 'Everything is dead right now. The battery restarts in a moment.' : 'Wait a moment: the battery is still building up the voltage.', 'warn');
+    return;
+  }
+  click();
+  if (s.on[i]) { switchOff(s, i); setMsg(`${ITEMS[i].name} switched off.`, 'info'); return; }
+  const unsettled = !s.out.healthy;
+  switchOn(s, i);
+  let m = ON_MSG[ITEMS[i].id] || '';
+  if (i === PV) m = s.sc.pv > 1 ? 'Solar plant connected. It ramps up and shares the load.' : 'Solar plant connected, but there is no sun right now.';
+  if (unsettled && i < NL) m = 'Careful: the battery had not settled from the last switch, so the jolts add up. ' + m;
+  setMsg(m, unsettled ? 'warn' : 'info');
+}
+function onTrip(s) {
+  tripSound();
+  let m;
+  if (s.tripReason === 'kick') {
+    const it = s.lastOn >= 0 ? ITEMS[s.lastOn] : null;
+    m = 'Beep! Too big a jolt at once, so the battery shut down and the town went dark again. ';
+    m += (it && it.kind === 'load' && it.kick >= 2) ? `The ${it.name.toLowerCase()} pulls a heavy jolt when it starts. Bring it back while the battery has room, or after solar or diesel are helping.` : 'Wait for the dial to calm down between switches.';
+  } else if (s.tripReason === 'steady') {
+    m = 'Beep! The town needs more power than the battery can give. ';
+    m += s.sc.pv > 1 ? 'Switch on the solar plant or the diesel generator to share the load.' : `With no sun, the diesel generator must share the load. It needs ${CFG.dgCrank} seconds to start.`;
+  } else m = 'The battery ran too low and shut down.';
+  setMsg(m + ' It restarts in a few seconds.', 'bad');
+}
+function onReady(s) {
+  if (live.ctrl === 'smart') { setMsg('The battery has formed the grid. The smart controller follows its plan, one switch every 3 s.', 'info'); return; }
+  setMsg(s.trips ? 'The battery restarted, but everything is off again. Try a different order.' : 'The battery has formed the grid. The lines are live, but every building is still off. Switch them on.', 'info');
+}
+function startSmart() {
+  const token = ++app.token;
+  app.state = 'search'; live = null;
+  $('#s-best').hidden = true; $('#s-bar').style.width = '0%'; $('#s-count').textContent = '0'; $('#s-ok').textContent = '0';
+  showOverlay('search');
+  optimize(app.hour, token,
+    (n, total, ok) => {
+      $('#s-count').textContent = fmt(n); $('#s-total').textContent = fmt(total); $('#s-ok').textContent = fmt(ok);
+      $('#s-bar').style.width = (n / total * 100).toFixed(1) + '%';
+    },
+    best => {
+      if (token !== app.token) return;
+      if (!best || !best.order) { toIntro(); setMsg('At this time no switching order restores the town without a trip. Try another time of day.', 'bad'); return; }
+      $('#s-order').innerHTML = best.order.map(i => `<li>${ITEMS[i].name}</li>`).join('');
+      $('#s-best').hidden = false;
+      setTimeout(() => {
+        if (token !== app.token) return;
+        showOverlay(null);
+        live = { s: newState(app.sc), ctrl: 'smart', order: best.order, c: newCtl() };
+        app.state = 'smart'; app.hist = [];
+        const rb = $('#ribbon'); rb.innerHTML = best.order.map(i => `<li>${ITEMS[i].name}</li>`).join(''); rb.hidden = false;
+        tone(220, 0.35, 0.05, 'triangle');
+        setMsg('The grid has failed. The smart controller waits for the battery, then follows its plan.', 'bad');
+      }, 1800);
+    });
+}
+function finish() {
+  const s = live.s, r = finalize(s), who = live.ctrl;
+  const R0 = app.results[app.hour] || (app.results[app.hour] = { you: null, smart: null });
+  if (who === 'player') R0.you = r; else { r.order = live.order.slice(0, live.c.k); R0.smart = r; }
+  app.state = 'result';
+  if (r.done) { chime(); setMsg('All five buildings are running again, without the grid.', 'good'); } else setMsg('Time is up.', 'warn');
+  const token = app.token;
+  setTimeout(() => { if (token === app.token && app.state === 'result') showResults(who); }, 900);
+}
+function noteText(y, m) {
+  if (!y) return 'Play a round yourself and see if you can match it.';
+  if (!m) return 'Now watch a computer do it. It plans the whole order before touching a single switch.';
+  if (y.trips > 0) return `You tripped the battery ${y.trips} time${y.trips > 1 ? 's' : ''}. The smart controller never does, because it checked every order in advance.`;
+  if (m.loadPct - y.loadPct > 1) return `No trips, well done. The smart controller still served ${Math.round(m.loadPct)} % of the load against your ${Math.round(y.loadPct)} % by choosing the order carefully.`;
+  if (y.loadPct - m.loadPct > 1) return `No trips, and you were quicker than the smart controller. It plays safe: it always waits at least ${CFG.gap} s between two switches.`;
+  return 'No trips, and you matched the smart controller. Nicely done!';
+}
+function showResults(who) {
+  const R0 = app.results[app.hour], y = R0.you, m = R0.smart, r = who === 'player' ? y : m;
+  let h;
+  if (who === 'player') h = r.done ? (r.trips === 0 ? 'Town restored, without a single trip.' : `Town restored, after ${r.trips} trip${r.trips > 1 ? 's' : ''}.`) : `Time is up: ${r.count} of 5 buildings running.`;
+  else h = r.done ? 'The smart controller restored the town.' : 'The smart controller ran out of time.';
+  $('#res-h').textContent = h;
+  const rows = [
+    ['Time to bring all five buildings back', x => x.done ? x.restoreTime.toFixed(1) + ' s' : 'Not finished'],
+    ['Times the battery tripped', x => String(x.trips)],
+    ['Load served in the first 30 s', x => Math.round(x.loadPct) + ' %', 'Share of the town’s demand that had power, on average'],
+    ['Solar used', x => x.pvPct === null ? 'No sun' : Math.round(x.pvPct) + ' %'],
+    ['Diesel burned', x => x.diesel.toFixed(1) + ' L']
+  ];
+  $('#res-body').innerHTML = rows.map(([label, f, hint]) =>
+    `<tr><th scope="row">${label}${hint ? `<small>${hint}</small>` : ''}</th><td>${y ? f(y) : '–'}</td><td>${m ? f(m) : '–'}</td></tr>`).join('');
+  $('#res-note').textContent = noteText(y, m);
+  if (m && m.order) { $('#res-order').innerHTML = m.order.map(i => `<li>${ITEMS[i].name}</li>`).join(''); $('#res-order-wrap').hidden = false; }
+  else $('#res-order-wrap').hidden = true;
+  $('#btn-smart2').hidden = !!m;
+  const next = HOURS[(HOURS.indexOf(app.hour) + 1) % HOURS.length];
+  $('#btn-other').textContent = `Try it at ${hourLabel(next)}`;
+  $('#btn-other').dataset.next = next;
+  showOverlay('result');
+}
+
+/* ---------------- main loop ---------------- */
+function tick() {
+  const s = live.s, prevPhase = s.phase, prevTrips = s.trips;
+  step(s);
+  if (live.ctrl === 'smart' && s.trips === prevTrips) {
+    const k0 = live.c.k;
+    smartControl(s, live.order, live.c);
+    if (live.c.k > k0) { click(); setMsg(`Smart controller: ${ITEMS[live.order[live.c.k - 1]].name} on. It waits at least ${CFG.gap} s before the next switch.`, 'info'); }
+  }
+  app.hist.push({ t: s.t, V: s.out.V, f: s.out.f, dem: s.out.load + s.out.surge, sun: s.out.pvUsed, dg: s.dgOut, inv: Math.max(0, s.out.inv) });
+  if (app.hist.length > 620) app.hist.shift();
+  if (s.trips > prevTrips) onTrip(s);
+  else if (prevPhase !== 'run' && s.phase === 'run') onReady(s);
+  if (s.phase === 'run' && s.out.frac > 1) { app.beepT -= DT; if (app.beepT <= 0) { beep(); app.beepT = 0.3; } } else app.beepT = 0;
+  if (s.done) finish();
+  else if (s.tReady !== null && s.t - s.tReady >= CFG.roundLimit) finish();
+}
+let acc = 0, lastTs = null;
+function loop(ts) {
+  if (lastTs === null) lastTs = ts;
+  let d = (ts - lastTs) / 1000; lastTs = ts;
+  if (d > 0.25) d = 0.25;
+  if (live && (app.state === 'playing' || app.state === 'smart')) {
+    acc += d;
+    while (acc >= DT) { tick(); acc -= DT; if (app.state !== 'playing' && app.state !== 'smart') { acc = 0; break; } }
+  } else acc = 0;
+  render(d, ts / 1000);
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- drawing ---------------- */
+const el = id => document.getElementById(id);
+function setText(q, t) { const e = $(q); if (e.textContent !== t) e.textContent = t; }
+function setBar(q, pct) { $(q).style.width = Math.max(0, Math.min(100, pct)).toFixed(1) + '%'; }
+function setFeeder(id, prog, on, flow, dots) {
+  const f = el('f_' + id), fd = el('fd_' + id);
+  const sx = +f.dataset.sx, sy = +f.dataset.sy, ex = +f.dataset.ex, ey = +f.dataset.ey;
+  f.setAttribute('x2', sx + (ex - sx) * prog); f.setAttribute('y2', sy + (ey - sy) * prog);
+  f.setAttribute('opacity', on ? 1 : 0);
+  fd.setAttribute('opacity', flow ? 1 : 0); fd.setAttribute('stroke-dashoffset', dots);
+}
+function render(d, now) {
+  const s = live ? live.s : null, normal = !s, sc = app.sc;
+  const run = !!s && s.phase === 'run', boot = !!s && s.phase === 'boot', cut = !!s && s.phase === 'cut';
+  const dots = -(now * 45) % 18, fdots = -(now * 40) % 14;
+
+  /* stage title */
+  let tag;
+  if (normal) tag = 'Normal: the town runs on the grid';
+  else if (cut) tag = s.firstCut ? 'The grid fails: blackout' : 'Tripped! Everything is off';
+  else if (boot) tag = 'The battery restarts the network';
+  else if (s.done) tag = 'Back on, without the grid';
+  else tag = live.ctrl === 'smart' ? 'The smart controller restores the town' : 'Switch the town back on';
+  setText('#tag', tag);
+
+  /* grid, link, lightning */
+  const flashing = cut && s.firstCut && s.t < 0.5;
+  el('bolt').setAttribute('opacity', flashing ? (Math.floor(s.t / 0.08) % 2 === 0 ? 1 : 0.15) : 0);
+  el('gridLit').setAttribute('opacity', normal || flashing ? 1 : 0);
+  el('gridLit').setAttribute('stroke', flashing ? '#FFF3C4' : C.amber);
+  el('gridDots').setAttribute('opacity', normal ? 1 : 0); el('gridDots').setAttribute('stroke-dashoffset', dots);
+  el('pccClosed').setAttribute('opacity', normal ? 1 : 0); el('pccOpen').setAttribute('opacity', normal ? 0 : 1);
+
+  /* bus */
+  let p = 0;
+  if (normal || run) p = 1; else if (boot) p = clamp((1 - s.phaseLeft / s.bootDur) * 1.4);
+  const bus = el('busLit');
+  bus.setAttribute('x1', BESS_X - (BESS_X - BUS_X0) * p); bus.setAttribute('x2', BESS_X + (BUS_X1 - BESS_X) * p);
+  bus.setAttribute('opacity', p > 0 ? 1 : 0);
+  el('busDotsAll').setAttribute('opacity', normal ? 1 : 0); el('busDotsAll').setAttribute('stroke-dashoffset', dots);
+  ['busDotsL', 'busDotsR'].forEach(id => { el(id).setAttribute('opacity', run ? 1 : 0); el(id).setAttribute('stroke-dashoffset', dots); });
+
+  /* items */
+  const k = Math.min(1, d * 8);
+  ITEMS.forEach((it, i) => {
+    let target, on, prog = 1, flow = false;
+    if (normal) {
+      on = true; target = i === PV ? (sc.pv > 1 ? 1 : 0.45) : 1;
+      flow = it.kind === 'load' || (i === PV && sc.pv > 1);
+    } else {
+      on = run && s.on[i];
+      prog = on ? clamp((s.t - s.onAt[i]) / 0.3) : 0;
+      if (i === PV) target = on ? (sc.pv > 1 ? 0.45 + 0.55 * s.pvRamp : 0.45) : 0;
+      else if (i === DG) target = on ? (s.dgCrank > 0 ? 0.6 : 1) : 0;
+      else target = on && prog >= 1 ? 1 : 0;
+      flow = on && prog >= 1 && (it.kind === 'load' || (i === PV && s.out.pvUsed > 1) || (i === DG && s.dgOut > 2));
+    }
+    app.lit[i] += (target - app.lit[i]) * k;
+    el('lit_' + it.id).setAttribute('opacity', app.lit[i].toFixed(3));
+    setFeeder(it.id, prog, on, flow, fdots);
+    const idx = s ? s.seq.indexOf(i) : -1;
+    const bg = el('b_' + it.id);
+    if (idx >= 0) { bg.setAttribute('opacity', 1); setText('#bt_' + it.id, String(idx + 1)); } else bg.setAttribute('opacity', 0);
+  });
+  /* battery */
+  const bTarget = normal || run ? 1 : boot ? clamp(1 - s.phaseLeft / s.bootDur + 0.3) : 0;
+  app.lit[NI] += (bTarget - app.lit[NI]) * k;
+  el('lit_BESS').setAttribute('opacity', app.lit[NI].toFixed(3));
+  setFeeder('BESS', normal || run ? 1 : boot ? clamp((1 - s.phaseLeft / s.bootDur) * 2) : 0, normal || run || (boot && s.phaseLeft < s.bootDur * 0.8), run && s.out.inv > 1, fdots);
+  setText('#kw_BESS', `${Math.round(s ? s.soc : R.soc0)} % charged`);
+  const ring = el('ring');
+  if (boot) {
+    const ph = (now % 0.8) / 0.8;
+    ring.setAttribute('opacity', ((1 - ph) * 0.9).toFixed(2));
+    ring.setAttribute('x', 215 - ph * 18); ring.setAttribute('y', 388 - ph * 18);
+    ring.setAttribute('width', 90 + ph * 36); ring.setAttribute('height', 47 + ph * 36);
+  } else ring.setAttribute('opacity', 0);
+  /* diesel: shake while starting, smoke while running */
+  const crank = !!s && run && s.on[DG] && s.dgCrank > 0, dgRun = !!s && run && s.on[DG] && s.dgCrank <= 0;
+  el('w_DG').setAttribute('transform', crank ? `translate(${Math.sin(now * 90) * 1.2} 0)` : '');
+  for (let j = 0; j < 3; j++) {
+    const ph = ((now * 0.8) + j / 3) % 1, c = el('smoke' + j);
+    c.setAttribute('opacity', dgRun ? (0.7 * (1 - ph)).toFixed(2) : 0);
+    c.setAttribute('cy', 372 - ph * 40); c.setAttribute('cx', 775 - ph * 10); c.setAttribute('r', 4 + ph * 8);
+  }
+
+  /* inverter panel */
+  let pct = 0, val = '–', cap = 'Grid is on', capCls = '';
+  if (s) {
+    if (cut) { cap = 'No power'; val = '0'; }
+    else if (boot) { cap = 'Starting up…'; val = '0'; }
+    else {
+      pct = s.out.frac * 100; val = String(Math.round(pct));
+      if (pct > 100) { cap = 'Overloaded: beeping!'; capCls = 'is-bad'; }
+      else if (pct > 80) { cap = 'Working hard'; capCls = 'is-warn'; }
+      else cap = s.out.healthy ? 'Comfortable' : 'Settling…';
+    }
+  }
+  app.needle += (Math.min(pct, 100) - app.needle) * Math.min(1, d * 12);
+  const wobble = pct > 100 ? Math.sin(now * 28) * 2.5 : 0;
+  el('needle').setAttribute('transform', `rotate(${(app.needle / 100 * 180 - 90 + wobble).toFixed(1)} 100 100)`);
+  setText('#d-val', val); setText('#d-cap', cap);
+  $('#d-cap').className = 'dial-cap ' + capCls;
+  $('.dial-num').classList.toggle('is-bad', pct > 100);
+  const soc = s ? s.soc : R.soc0;
+  setText('#v-batt', Math.round(soc) + ' %'); setBar('#b-batt', soc);
+  let sun;
+  if (sc.pv <= 1) sun = 'No sun';
+  else if (!s) sun = `${fmt(sc.pv)} kW`;
+  else if (!s.on[PV]) sun = 'Off';
+  else sun = `${fmt(s.out.pvUsed)} of ${fmt(sc.pv)} kW`;
+  setText('#v-sun', sun);
+  let gen = 'Off';
+  if (s && s.on[DG]) gen = s.dgCrank > 0 ? `Starting, ${Math.ceil(s.dgCrank)} s` : `${fmt(s.dgOut)} kW`;
+  setText('#v-gen', gen);
+  setText('#v-dsl', s ? s.dieselTot.toFixed(1) + ' L' : '0 L');
+  const served = s ? loadOn(s) : sc.total;
+  setText('#v-home', `${fmt(served)} of ${fmt(sc.total)} kW`); setBar('#b-home', sc.total > 0 ? served / sc.total * 100 : 0);
+  setText('#v-time', (s && s.tReady !== null ? Math.max(0, s.t - s.tReady) : 0).toFixed(1) + ' s');
+  setText('#v-trips', s ? String(s.trips) : '0');
+
+  /* switches */
+  const playable = app.state === 'playing' && !!live && live.ctrl === 'player';
+  SW.forEach((b, i) => {
+    const on = s ? s.on[i] : i !== DG;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.toggle('is-busy', !!(s && i === DG && s.on[DG] && s.dgCrank > 0));
+    if (b.disabled === playable) b.disabled = !playable;
+  });
+  const smartDis = app.state === 'search' || app.state === 'smart';
+  if ($('#btn-smart').disabled !== smartDis) $('#btn-smart').disabled = smartDis;
+  if (live && live.ctrl === 'smart') $$('#ribbon li').forEach((li, i) => li.classList.toggle('done', i < live.c.k));
+
+  /* engineer view */
+  if ($('#eng').open) {
+    const st = !s ? 0 : cut ? 1 : boot ? 2 : s.done ? 4 : 3;
+    $$('.stages li').forEach(li => li.classList.toggle('is-now', +li.dataset.st === st));
+    drawChart(); drawProfiles();
+  }
+}
+function canvasCtx(cv) {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return null;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  ctx.font = '12px Hind, system-ui, sans-serif'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  return { ctx, w, h };
+}
+function drawChart() {
+  const c = canvasCtx($('#chart')); if (!c) return;
+  const { ctx, w, h } = c;
+  const H = app.hist, tEnd = H.length ? H[H.length - 1].t : 30, t0 = tEnd - 30;
+  const L = 70, Rm = 84, top = 8, gap = 14, lh = (h - top - gap * 2 - 22) / 3;
+  const X = t => L + (t - t0) / 30 * (w - L - Rm);
+  const pmax = Math.ceil(Math.max(R.bessKW * 1.6, app.sc.total * 1.3) / 100) * 100;
+  const lanes = [
+    { label: 'Voltage', unit: 'pu', min: 0.85, max: 1.08, band: [0.92, 1.05], ticks: [0.92, 1.05], series: [['V', '#1E2A3A', '']] },
+    { label: 'Frequency', unit: 'Hz', min: 49.2, max: 50.3, band: [49.5, 50.5], ticks: [49.5, 50], series: [['f', '#1E2A3A', '']] },
+    { label: 'Power', unit: 'kW', min: 0, max: pmax, ticks: [0, pmax / 2, pmax],
+      series: [['dem', '#E8442E', 'Demand'], ['inv', '#2E5A96', 'Battery'], ['sun', '#C98200', 'Solar'], ['dg', '#2F6B4F', 'Diesel']] }
+  ];
+  lanes.forEach((ln, kk) => {
+    const y0 = top + kk * (lh + gap), y1 = y0 + lh;
+    const Y = v => y1 - (Math.min(ln.max, Math.max(ln.min, v)) - ln.min) / (ln.max - ln.min) * (y1 - y0);
+    ctx.fillStyle = '#F4F5F2'; ctx.fillRect(L, y0, w - L - Rm, lh);
+    if (ln.band) { const ya = Y(ln.band[1]), yb = Y(ln.band[0]); ctx.fillStyle = 'rgba(31,164,87,.15)'; ctx.fillRect(L, ya, w - L - Rm, yb - ya); }
+    ctx.fillStyle = '#4B5768'; ctx.textAlign = 'left'; ctx.fillText(ln.label, 4, y0 + 8); ctx.fillText(ln.unit, 4, y0 + 24);
+    ctx.textAlign = 'right';
+    ln.ticks.forEach(v => {
+      ctx.fillStyle = '#4B5768'; ctx.fillText(String(v), L - 6, Y(v));
+      ctx.strokeStyle = 'rgba(30,42,58,.12)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(w - Rm, Y(v)); ctx.stroke();
+    });
+    ln.series.forEach(([key, col, name], j) => {
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath();
+      let started = false;
+      for (const pt of H) { if (pt.t < t0) continue; const x = X(pt.t), y = Y(pt[key]); if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); }
+      ctx.stroke();
+      if (name) { ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.fillText(name, w - Rm + 8, y0 + 10 + j * 16); }
+    });
+  });
+  ctx.fillStyle = '#4B5768'; ctx.textAlign = 'center'; ctx.fillText('Last 30 s of game time', L + (w - L - Rm) / 2, h - 9);
+}
+const PCOL = ['#E8442E', '#7B4FB8', '#2E5A96', '#1E9BB8', '#5B6472'];
+function drawProfiles() {
+  const c = canvasCtx($('#pchart')); if (!c) return;
+  const { ctx, w, h } = c;
+  const L = 56, Rm = 110, top = 10, bot = 26;
+  const n = Math.round(24 * 60 / DATA.stepMin);
+  let ymax = 0;
+  ITEMS.slice(0, NL).forEach(it => DATA.loads[it.id].forEach(v => { if (v > ymax) ymax = v; }));
+  DATA.pv.forEach(v => { if (v > ymax) ymax = v; });
+  ymax = Math.ceil(ymax / 100) * 100 || 100;
+  const X = hr => L + hr / 24 * (w - L - Rm), Y = v => top + (1 - v / ymax) * (h - top - bot);
+  ctx.strokeStyle = 'rgba(30,42,58,.12)'; ctx.lineWidth = 1; ctx.fillStyle = '#4B5768'; ctx.textAlign = 'right';
+  [0, ymax / 2, ymax].forEach(v => { ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(w - Rm, Y(v)); ctx.stroke(); ctx.fillText(`${v} kW`, L - 6, Y(v)); });
+  ctx.textAlign = 'center';
+  [0, 6, 12, 18, 24].forEach(hr => ctx.fillText(`${String(hr).padStart(2, '0')}:00`, X(hr), h - 10));
+  const line = (arr, col, dash, name, j) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash(dash); ctx.beginPath();
+    for (let i = 0; i <= n && i < arr.length; i++) { const x = X(i * DATA.stepMin / 60), y = Y(arr[i]); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.fillText(name, w - Rm + 8, top + 8 + j * 16);
+  };
+  ITEMS.slice(0, NL).forEach((it, j) => line(DATA.loads[it.id], PCOL[j], [], it.name, j));
+  line(DATA.pv, '#C98200', [6, 4], 'Solar', NL);
+  const xh = X(app.hour);
+  ctx.strokeStyle = '#1E2A3A'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(xh, top); ctx.lineTo(xh, h - bot); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#1E2A3A'; ctx.textAlign = 'center'; ctx.fillText('Blackout', xh, top + 4);
+}
+
+/* ---------------- wiring ---------------- */
+$$('[data-hour]').forEach(b => b.addEventListener('click', () => setHour(+b.dataset.hour)));
+$('#btn-start').addEventListener('click', startRound);
+$('#btn-reset').addEventListener('click', toIntro);
+$('#btn-smart').addEventListener('click', startSmart);
+$('#btn-smart2').addEventListener('click', startSmart);
+$('#btn-again').addEventListener('click', startRound);
+$('#btn-other').addEventListener('click', e => setHour(+e.currentTarget.dataset.next));
+$('#btn-sound').addEventListener('click', e => {
+  app.sound = !app.sound;
+  e.currentTarget.setAttribute('aria-pressed', app.sound ? 'true' : 'false');
+  e.currentTarget.textContent = app.sound ? 'Sound on' : 'Sound off';
+});
+document.addEventListener('keydown', e => {
+  if (app.state !== 'playing' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= NI) { e.preventDefault(); onSwitch(n - 1); }
+});
+
+refreshLabels();
+showOverlay('intro');
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
